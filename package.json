@@ -1,0 +1,32 @@
+{
+  "name": "bot-finanzas-whatsapp",
+  "version": "1.0.0",
+  "description": "Bot de finanzas personales por notas de voz y texto en WhatsApp usando Baileys, Groq y Supabase",
+  "main": "src/bot.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/bot.js",
+    "telegram": "node src/telegram_bot.js",
+    "dev": "node --watch src/bot.js"
+  },
+  "keywords": [
+    "whatsapp",
+    "baileys",
+    "groq",
+    "whisper",
+    "llama3",
+    "supabase",
+    "finanzas"
+  ],
+  "author": "Ivan Felipe Sánchez",
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "@whiskeysockets/baileys": "^7.0.0-rc14",
+    "dotenv": "^16.4.7",
+    "grammy": "^1.46.0",
+    "groq-sdk": "^0.15.0",
+    "pino": "^9.6.0",
+    "qrcode-terminal": "^0.12.0"
+  }
+}

@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Finanzas IA — Dashboard de Gastos</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#10b981">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Supabase JS CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #0b0f17;
+      color: #f1f5f9;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+    .glass-card {
+      background: rgba(17, 24, 39, 0.75);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col pb-12">
+
+  <!-- Navbar -->
+  <header class="glass-card sticky top-0 z-40 border-b border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-xl">
+          💰
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+            Finanzas IA <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">En vivo</span>
+          </h1>
+          <p class="text-xs text-slate-400">Bucaramanga • UTS</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button id="btnRefresh" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors" title="Recargar datos">
+          <i class="fa-solid fa-arrows-rotate text-sm"></i>
+        </button>
+        <button id="btnOpenModal" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm transition-all shadow-lg shadow-emerald-600/20 flex items-center gap-2">
+          <i class="fa-solid fa-plus text-xs"></i>
+          <span class="hidden sm:inline">Nuevo Gasto</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full mt-6 flex-1 space-y-6">
+
+    <!-- KPI Summary Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- Total Mes -->
+      <div class="glass-card rounded-2xl p-4 sm:p-5 relative overflow-hidden">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Mes</span>
+          <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-sm">
+            <i class="fa-solid fa-wallet"></i>
+          </div>
+        </div>
+        <p id="kpiTotalMes" class="text-xl sm:text-2xl font-black mt-2 text-white">$0</p>
+        <p class="text-xs text-slate-400 mt-1">Acumulado este mes</p>
+      </div>
+
+      <!-- Total Hoy -->
+      <div class="glass-card rounded-2xl p-4 sm:p-5 relative overflow-hidden">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Gastado Hoy</span>
+          <div class="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center text-sm">
+            <i class="fa-solid fa-calendar-day"></i>
+          </div>
+        </div>
+        <p id="kpiTotalHoy" class="text-xl sm:text-2xl font-black mt-2 text-white">$0</p>
+        <p id="kpiCantidadHoy" class="text-xs text-slate-400 mt-1">0 compras hoy</p>
+      </div>
+
+      <!-- Total Registros -->
+      <div class="glass-card rounded-2xl p-4 sm:p-5 relative overflow-hidden">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Transacciones</span>
+          <div class="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center text-sm">
+            <i class="fa-solid fa-receipt"></i>
+          </div>
+        </div>
+        <p id="kpiRegistrosMes" class="text-xl sm:text-2xl font-black mt-2 text-white">0</p>
+        <p class="text-xs text-slate-400 mt-1">Registros en el mes</p>
+      </div>
+
+      <!-- Categoría Top -->
+      <div class="glass-card rounded-2xl p-4 sm:p-5 relative overflow-hidden">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Mayor Gasto</span>
+          <div class="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center text-sm">
+            <i class="fa-solid fa-fire"></i>
+          </div>
+        </div>
+        <p id="kpiTopCategoria" class="text-lg sm:text-xl font-black mt-2 text-white truncate">-</p>
+        <p id="kpiTopMonto" class="text-xs text-slate-400 mt-1">$0</p>
+      </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      
+      <!-- Donut Chart: Categorías -->
+      <div class="glass-card rounded-2xl p-5 lg:col-span-5 flex flex-col">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-chart-pie text-emerald-400"></i>
+            Gastos por Categoría
+          </h2>
+          <span class="text-xs text-slate-400">Mes actual</span>
+        </div>
+        <div class="relative flex-1 flex items-center justify-center min-h-[260px]">
+          <canvas id="chartCategorias"></canvas>
+          <div id="chartCatEmpty" class="hidden absolute inset-0 flex flex-col items-center justify-center text-slate-500 text-sm">
+            <i class="fa-solid fa-receipt text-3xl mb-2"></i>
+            No hay gastos este mes
+          </div>
+        </div>
+      </div>
+
+      <!-- Bar Chart: Evolución Diaria -->
+      <div class="glass-card rounded-2xl p-5 lg:col-span-7 flex flex-col">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-chart-simple text-blue-400"></i>
+            Evolución Diaria de Gastos
+          </h2>
+          <span class="text-xs text-slate-400">Día a día ($ COP)</span>
+        </div>
+        <div class="relative flex-1 min-h-[260px]">
+          <canvas id="chartDiario"></canvas>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Recent Expenses Table -->
+    <div class="glass-card rounded-2xl p-5 overflow-hidden">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <div>
+          <h2 class="text-base font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-clock-rotate-left text-purple-400"></i>
+            Últimos Movimientos
+          </h2>
+          <p class="text-xs text-slate-400">Registrados por WhatsApp, Telegram o Dashboard</p>
+        </div>
+
+        <!-- Filtro por categoría -->
+        <div class="flex items-center gap-2">
+          <select id="selectFiltroCat" class="bg-slate-800 border border-slate-700 text-slate-300 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500">
+            <option value="todas">Todas las categorías</option>
+            <option value="comida">🍔 Comida</option>
+            <option value="transporte">🚌 Transporte</option>
+            <option value="servicios">💡 Servicios</option>
+            <option value="ocio">🎮 Ocio</option>
+            <option value="salud">💊 Salud</option>
+            <option value="educacion">📚 Educación</option>
+            <option value="compras">🛍️ Compras</option>
+            <option value="otros">📌 Otros</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Table Container -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm text-slate-300">
+          <thead class="text-xs uppercase bg-slate-800/60 text-slate-400 border-b border-slate-800">
+            <tr>
+              <th scope="col" class="py-3 px-4 rounded-l-xl">Fecha</th>
+              <th scope="col" class="py-3 px-4">Categoría</th>
+              <th scope="col" class="py-3 px-4">Descripción</th>
+              <th scope="col" class="py-3 px-4 text-right">Monto</th>
+              <th scope="col" class="py-3 px-4 text-center rounded-r-xl">Acción</th>
+            </tr>
+          </thead>
+          <tbody id="tablaGastosBody" class="divide-y divide-slate-800/60">
+            <tr>
+              <td colspan="5" class="py-8 text-center text-slate-500">
+                <i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i>
+                <p>Cargando gastos desde Supabase...</p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Modal: Agregar Gasto Manual -->
+  <div id="modalGasto" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm hidden">
+    <div class="glass-card rounded-2xl w-full max-w-md p-6 border border-slate-700 shadow-2xl animate-in fade-in duration-200">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <span>➕</span> Registrar Nuevo Gasto
+        </h3>
+        <button id="btnCloseModal" class="text-slate-400 hover:text-white text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="formNuevoGasto" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Monto en pesos (COP)</label>
+          <div class="relative">
+            <span class="absolute left-3 top-2.5 text-slate-400 font-bold">$</span>
+            <input type="number" id="inputMonto" required min="100" step="100" placeholder="15000" class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-8 pr-4 py-2.5 text-white font-bold focus:outline-none focus:border-emerald-500 text-sm">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Categoría</label>
+          <select id="inputCategoria" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-emerald-500 text-sm">
+            <option value="comida">🍔 Comida</option>
+            <option value="transporte">🚌 Transporte</option>
+            <option value="servicios">💡 Servicios</option>
+            <option value="ocio">🎮 Ocio</option>
+            <option value="salud">💊 Salud</option>
+            <option value="educacion">📚 Educación</option>
+            <option value="compras">🛍️ Compras</option>
+            <option value="otros">📌 Otros</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Descripción</label>
+          <input type="text" id="inputDescripcion" required placeholder="Ej: Almuerzo en la UTS" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 text-sm">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Fecha</label>
+          <input type="date" id="inputFecha" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-emerald-500 text-sm">
+        </div>
+
+        <div class="pt-2 flex items-center justify-end gap-2">
+          <button type="button" id="btnCancelModal" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium">Cancelar</button>
+          <button type="submit" id="btnGuardarGasto" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold shadow-lg shadow-emerald-600/20">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- JavaScript: Lógica de Supabase & Gráficos -->
+  <script>
+    // 1. Conexión directa a Supabase con tus credenciales
+    const SUPABASE_URL = 'https://jeofnoknvqvwwpkhrmqz.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_zsI6FXNGcx7yk2brGKj2TA_TweNlURF';
+    
+    // Evitar conflicto de variable global con la librería CDN
+    const supabaseClient = window.supabase?.createClient 
+      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+      : supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // Mapeo de Categorías y Emojis
+    const CATEGORIAS_CONFIG = {
+      comida: { icon: '🍔', label: 'Comida', color: '#10b981' },
+      transporte: { icon: '🚌', label: 'Transporte', color: '#3b82f6' },
+      servicios: { icon: '💡', label: 'Servicios', color: '#f59e0b' },
+      ocio: { icon: '🎮', label: 'Ocio', color: '#ec4899' },
+      salud: { icon: '💊', label: 'Salud', color: '#ef4444' },
+      educacion: { icon: '📚', label: 'Educación', color: '#8b5cf6' },
+      compras: { icon: '🛍️', label: 'Compras', color: '#06b6d4' },
+      otros: { icon: '📌', label: 'Otros', color: '#64748b' },
+    };
+
+    function formatCOP(num) {
+      return '$' + Math.round(Number(num || 0)).toLocaleString('es-CO');
+    }
+
+    let chartCatInstance = null;
+    let chartDiaInstance = null;
+    let todosLosGastos = [];
+
+    // Inicializar fecha de hoy en el modal
+    document.getElementById('inputFecha').value = new Date().toISOString().split('T')[0];
+
+    // Cargar Datos
+    async function cargarDatos(silencioso = false) {
+      try {
+        const btnRef = document.getElementById('btnRefresh');
+        if (!silencioso) btnRef.classList.add('animate-spin');
+
+        const { data, error } = await supabaseClient
+          .from('gastos')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (!silencioso) btnRef.classList.remove('animate-spin');
+
+        if (error) throw error;
+        todosLosGastos = data || [];
+        renderizarTodo();
+      } catch (err) {
+        console.error('Error cargando datos de Supabase:', err);
+        if (!silencioso) {
+          document.getElementById('tablaGastosBody').innerHTML = `
+            <tr><td colspan="5" class="py-6 text-center text-red-400">
+              Error al conectar con Supabase: ${err.message}
+            </td></tr>
+          `;
+        }
+      }
+    }
+
+    function renderizarTodo() {
+      const hoyStr = new Date().toISOString().split('T')[0];
+      const mesActualStr = hoyStr.substring(0, 7); // YYYY-MM
+
+      const gastosDelMes = todosLosGastos.filter(g => (g.fecha || '').startsWith(mesActualStr));
+      const gastosDeHoy = todosLosGastos.filter(g => g.fecha === hoyStr);
+
+      // 1. KPIs
+      const totalMes = gastosDelMes.reduce((sum, g) => sum + Number(g.monto), 0);
+      const totalHoy = gastosDeHoy.reduce((sum, g) => sum + Number(g.monto), 0);
+
+      document.getElementById('kpiTotalMes').innerText = formatCOP(totalMes);
+      document.getElementById('kpiTotalHoy').innerText = formatCOP(totalHoy);
+      document.getElementById('kpiCantidadHoy').innerText = `${gastosDeHoy.length} compra(s) hoy`;
+      document.getElementById('kpiRegistrosMes').innerText = gastosDelMes.length;
+
+      // Calcular categoría top
+      const catTotals = {};
+      gastosDelMes.forEach(g => {
+        const cat = (g.categoria || 'otros').toLowerCase();
+        catTotals[cat] = (catTotals[cat] || 0) + Number(g.monto);
+      });
+
+      let topCat = '-';
+      let topMonto = 0;
+      Object.entries(catTotals).forEach(([cat, val]) => {
+        if (val > topMonto) {
+          topMonto = val;
+          topCat = cat;
+        }
+      });
+
+      const catInfo = CATEGORIAS_CONFIG[topCat] || { icon: '📌', label: topCat };
+      document.getElementById('kpiTopCategoria').innerHTML = topCat !== '-' ? `${catInfo.icon} ${catInfo.label}` : '-';
+      document.getElementById('kpiTopMonto').innerText = topMonto > 0 ? formatCOP(topMonto) : '$0';
+
+      // 2. Gráficos
+      renderizarGraficoCategorias(catTotals);
+      renderizarGraficoDiario(gastosDelMes);
+
+      // 3. Tabla de transacciones
+      renderizarTabla();
+    }
+
+    // Gráfico de Dona: Categorías
+    function renderizarGraficoCategorias(catTotals) {
+      const ctx = document.getElementById('chartCategorias').getContext('2d');
+      const keys = Object.keys(catTotals);
+
+      if (chartCatInstance) chartCatInstance.destroy();
+
+      if (keys.length === 0) {
+        document.getElementById('chartCatEmpty').classList.remove('hidden');
+        return;
+      }
+      document.getElementById('chartCatEmpty').classList.add('hidden');
+
+      const labels = keys.map(k => (CATEGORIAS_CONFIG[k]?.icon || '📌') + ' ' + (CATEGORIAS_CONFIG[k]?.label || k));
+      const data = keys.map(k => catTotals[k]);
+      const colors = keys.map(k => CATEGORIAS_CONFIG[k]?.color || '#64748b');
+
+      chartCatInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets: [{
+            data,
+            backgroundColor: colors,
+            borderWidth: 2,
+            borderColor: '#0b0f17',
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { color: '#94a3b8', font: { size: 11 }, padding: 12 }
+            },
+            tooltip: {
+              callbacks: {
+                label: (item) => ' ' + formatCOP(item.raw)
+              }
+            }
+          },
+          cutout: '68%',
+        }
+      });
+    }
+
+    // Gráfico de Barras: Evolución diaria
+    function renderizarGraficoDiario(gastosDelMes) {
+      const ctx = document.getElementById('chartDiario').getContext('2d');
+      if (chartDiaInstance) chartDiaInstance.destroy();
+
+      // Agrupar por día
+      const diasMap = {};
+      const fechaActual = new Date();
+      const diasEnMes = new Date(fechaActual.getFullYear(), fechaActual.getMonth() + 1, 0).getDate();
+
+      for (let i = 1; i <= diasEnMes; i++) {
+        diasMap[i] = 0;
+      }
+
+      gastosDelMes.forEach(g => {
+        if (g.fecha) {
+          const dia = parseInt(g.fecha.split('-')[2], 10);
+          if (diasMap[dia] !== undefined) {
+            diasMap[dia] += Number(g.monto);
+          }
+        }
+      });
+
+      const labels = Object.keys(diasMap).map(d => `Día ${d}`);
+      const data = Object.values(diasMap);
+
+      chartDiaInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Gasto Diario',
+            data,
+            backgroundColor: 'rgba(59, 130, 246, 0.65)',
+            hoverBackgroundColor: 'rgba(59, 130, 246, 0.95)',
+            borderRadius: 6,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { color: '#64748b', maxTicksLimit: 12, font: { size: 10 } }
+            },
+            y: {
+              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+              ticks: {
+                color: '#64748b',
+                font: { size: 10 },
+                callback: (val) => '$' + (val >= 1000 ? (val / 1000) + 'k' : val)
+              }
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (item) => ' ' + formatCOP(item.raw)
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // Tabla de movimientos
+    function renderizarTabla() {
+      const tbody = document.getElementById('tablaGastosBody');
+      const filtro = document.getElementById('selectFiltroCat').value;
+
+      let lista = todosLosGastos;
+      if (filtro !== 'todas') {
+        lista = lista.filter(g => (g.categoria || '').toLowerCase() === filtro);
+      }
+
+      if (lista.length === 0) {
+        tbody.innerHTML = `
+          <tr><td colspan="5" class="py-8 text-center text-slate-500 text-sm">
+            No se encontraron gastos registrados.
+          </td></tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = lista.slice(0, 30).map(g => {
+        const cat = (g.categoria || 'otros').toLowerCase();
+        const conf = CATEGORIAS_CONFIG[cat] || { icon: '📌', label: cat };
+        return `
+          <tr class="hover:bg-slate-800/30 transition-colors">
+            <td class="py-3 px-4 font-mono text-xs text-slate-400 whitespace-nowrap">${g.fecha || '-'}</td>
+            <td class="py-3 px-4 whitespace-nowrap">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 text-slate-200">
+                <span>${conf.icon}</span> ${conf.label}
+              </span>
+            </td>
+            <td class="py-3 px-4 font-medium text-white">${g.descripcion || 'Sin descripción'}</td>
+            <td class="py-3 px-4 text-right font-bold font-mono text-emerald-400 whitespace-nowrap">${formatCOP(g.monto)}</td>
+            <td class="py-3 px-4 text-center">
+              <button onclick="eliminarGasto('${g.id}')" class="p-1.5 text-slate-500 hover:text-red-400 transition-colors rounded-lg hover:bg-red-500/10" title="Eliminar registro">
+                <i class="fa-regular fa-trash-can text-xs"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Eliminar Gasto
+    async function eliminarGasto(id) {
+      if (!confirm('¿Deseas eliminar este registro de gasto?')) return;
+      try {
+        const { error } = await supabaseClient.from('gastos').delete().eq('id', id);
+        if (error) throw error;
+        todosLosGastos = todosLosGastos.filter(g => g.id !== id);
+        renderizarTodo();
+      } catch (err) {
+        alert('Error eliminando: ' + err.message);
+      }
+    }
+
+    // Modal Control
+    const modal = document.getElementById('modalGasto');
+    document.getElementById('btnOpenModal').onclick = () => modal.classList.remove('hidden');
+    document.getElementById('btnCloseModal').onclick = () => modal.classList.add('hidden');
+    document.getElementById('btnCancelModal').onclick = () => modal.classList.add('hidden');
+
+    // Guardar Manual
+    document.getElementById('formNuevoGasto').onsubmit = async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('btnGuardarGasto');
+      btn.disabled = true;
+      btn.innerText = 'Guardando...';
+
+      const monto = Number(document.getElementById('inputMonto').value);
+      const categoria = document.getElementById('inputCategoria').value;
+      const descripcion = document.getElementById('inputDescripcion').value;
+      const fecha = document.getElementById('inputFecha').value;
+
+      try {
+        const { error } = await supabaseClient.from('gastos').insert([{
+          user_phone: 'dashboard_manual',
+          monto,
+          categoria,
+          descripcion,
+          fecha
+        }]);
+
+        if (error) throw error;
+        modal.classList.add('hidden');
+        document.getElementById('formNuevoGasto').reset();
+        document.getElementById('inputFecha').value = new Date().toISOString().split('T')[0];
+        cargarDatos();
+      } catch (err) {
+        alert('Error al guardar: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Guardar';
+      }
+    };
+
+    // Eventos
+    document.getElementById('btnRefresh').onclick = () => cargarDatos(false);
+    document.getElementById('selectFiltroCat').onchange = renderizarTabla;
+
+    // Registrar Service Worker para PWA (solo cuando corre bajo HTTP/HTTPS)
+    if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+
+    // 1. Carga inicial
+    cargarDatos();
+
+    // 2. Auto-recarga cada 3 segundos (por si estás en Telegram enviando gastos)
+    setInterval(() => {
+      cargarDatos(true);
+    }, 3000);
+
+    // 3. Suscripción en Tiempo Real de Supabase
+    try {
+      supabaseClient
+        .channel('gastos-live')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'gastos' }, () => {
+          console.log('⚡ Nuevo gasto detectado en vivo desde Telegram/WhatsApp');
+          cargarDatos(true);
+        })
+        .subscribe();
+    } catch (e) {
+      console.warn('Realtime fallback:', e);
+    }
+  </script>
+</body>
+</html>
